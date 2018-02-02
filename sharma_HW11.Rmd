@@ -1,0 +1,317 @@
+```{r global_options, include=FALSE, cache = F}
+library(knitr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+library(modelr)
+library(broom)
+library(pROC)
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, fig.align="center", fig.height=4.5, fig.width=4.5)
+```
+
+## Homework 11: Model Selection and Validation (100 points)
+#### BIO5312
+#### Due 11/14/17 by 5:30 pm
+
+**Krati Sharma**
+
+<br>
+
+**Consider $\alpha=0.05$ as significant throughout this assignment.**
+<br>
+
+
+## Part One
+
+<br>
+
+This section uses the dataset `bodyfat.csv`, which contains various physical measurements from ~250 adult men. Variables in the dataset include the following:
+
++ `Percent`, body fat percentage
++ `Age`, in years
++ `Weight`, in lbs
++ `Height`, in inches
++ `Neck`, circumference in cm
++ `Chest`, circumference in cm
++ `Abdomen`, circumference in cm
++ `Hip`, circumference in cm
++ `Thigh`, circumference in cm
++ `Knee`, circumference in cm  
++ `Ankle`, circumference in cm 
++ `Biceps`, circumference in cm 
++ `Forearm`, circumference in cm
++ `Wrist`, circumference in cm
+
+<br>
+
+**Question 1 (15 points).** Use the `step()` function to construct a linear model that predicts body fat percentage in men (we will call this the "step-wise model"). 
+
+Be sure to use the argument `trace=0` when running `step`, i.e.: `step(lm(Y~X, data=data), trace=0)`. This will reduce the amount of unnecessary output. **You will lose points if you don't include this argument.**
+
+Then, provide an answer with the following components:
+
++ State which predictors `step()` removed from the model
++ Report the final AIC and BIC for the step-wise model
++ Fully interpret all coefficients (including the intercept) and the $R^2$, indicating its significance and what it means regarding the response variable
++ Indicate if you observe anything "unexpected" in the final model (Hint: there **are** several "unexpected" things in the output, which relates to answers under the previous bullet point!)
+<br>
+```{r}
+###################################Read the data file############################
+bodyfat <- read.csv("bodyfat.csv")
+bodyfat
+############################### Generate the linear model########################
+model_fat <- lm(Percent ~., data=bodyfat) 
+
+###########################Selection with AIC####################################
+######################################################
+aic <- step(model_fat, trace=0)  
+aic
+
+################To display a data frame with diposable row name##################
+#########################################
+tidy(aic)  
+
+################To construct a single row summary of a model #################### ##########################################################################
+glance(aic) %>%select(r.squared, adj.r.squared, AIC, BIC) 
+
+
+```
+
+<br>
+** The linear model from the bodyfat dataset yields a BMI of -33.46730410. For every unit increase in the Age, Weight, Neck, Abdomen, Thigh, Forearm and Wrist, the bodyfat is increased by aproximately 0.06819284,-0.11852520,-0.37360674, 0.91079454,0.21876553,0.55219076 and -1.54479566 respectively. Height, Chest, Hip, Knee, Ankle and Biceps are the excluded predictors. Significant statisitics predictors are Age, Weight, Abdomen, Forearm and Wrist based on the p_value which is less than alpha of 0.05. The intercept for with both criteira, AIC and BIC are the same, i.e. -33.46730. The AIC and BIC values are 1448.728 and 1480.422 respectively. Further the adjusted R^2 is 73% which means that 73% variation in body fat percent is explained by other predictors in the dataset.The unexpected part is that Neck and thigh have p_value greater that alpha of 0.05 but they have been included as a good predictors in AIC calculation. **
+
+**Question 2 (15 points).** Perform a **likelihood ratio test** (LRT) between two bodyfat percentage models: the step-wise model determined in question 1, and a second model with all those same predictors *and an added effect* that is an interaction between *the two most significant predictors in the step-wise model*. 
+
+In other words, imagine an iris model as `lm(Petal.Length ~ Sepal.Width + Sepal.Length + Species, data = iris)`. To add in an interaction between Sepal.Width and Sepal.Length, we would do this:  `lm(Petal.Length ~ Sepal.Width + Sepal.Length + Species + Sepal.Width:Sepal.Length, data = iris)`.
+
+Then, provide an answer with the following components:
+
++ Based on the LRT, which model is preferred?
++ Compare the adjusted $R^2$ values between the two models. Does your LRT support the model with the higher $R^2$? 
++ Is your result consistent with what you would expect based on AIC and BIC differences between these two models? 
+
+<br>
+```{r}
+################Performing LRT for null and alternater model##################
+#########################################
+tidy(aic) %>% filter(p.value<0.05) #### The data depicts that the 2 most significant predictors are abdomen and weight. 
+
+################To display a data frame with term and estimate ##################
+#########################################
+tidy(aic) %>% select(term, estimate)
+
+
+################Generate Alternate model with an added effect by the two most significant predictors in the step wise model ####################################################
+alt_model <- lm(Percent ~ Age + Weight + Neck + Abdomen + Thigh + Forearm + Wrist+Weight:Abdomen, data=bodyfat)
+
+
+################Get P-value greater then 0.05, Term and Estimate for Alternate model  ####################################################
+tidy(alt_model) %>% filter(p.value<0.05)
+tidy(alt_model) %>% select(term, estimate)
+
+################To find LRT for the null model#############################################
+############################################
+glance(aic) %>%select(adj.r.squared, df, logLik, AIC, BIC) 
+
+################To find LRT for the alternate model######################
+#######################
+glance(alt_model) %>%select(adj.r.squared, df, logLik, AIC, BIC) 
+
+D <- 2 * ((-713.1053) - (-715.3642))
+df <- 9 - 8
+1 - pchisq(D, df)
+```
+**The log likelihood of a null model with estimated parameters 𝜷0  -33.467304107 and other predictors is -715.3642 where as the log likelihood of an alternate model with estimated parameters 𝜷0 -52.261373307 and other predictors is -710.3486. Since the p-value is less than the alpha value 0.03354394, we have evidence for model improvement in the alternate compared to the null. Adjusted R^2 value for null model is 0.7340524 and for alternate model is 0.7434521. There is slight improvement in R^2 in our alternate model. AIC and BIC value in null model is more than in alternate model. In null model, the AIC value is 1448.728 and BIC is 1480.422. In alternate model, the AIC and BIC value of 1440.697 and 1475.912 respectively.**
+
+**Question 3 (20 points).** Using only the predictors in the step-wise model (not the model from question 2), perform a *k-fold cross validation* with K=10 to predict bodyfat percentage. Make sure to set your seed first! For each trained model, calculate RMSE for both the respective training and testing data. Visualize the final RMSE distributions (there will be 20 values, 10 from test data and 10 from training data) as boxplots, in a single call to `ggplot()`. Based on your results, explain how robust the model is.
+
+<br>
+
+```{r}
+
+################Setting the seed first!####################################
+#############################
+set.seed(1011)
+
+
+####################Read the dataset and get the trained dataset############# ###################
+bodyfat %>% crossv_kfold(10) %>% mutate(model = purrr::map(train, ~lm (Percent ~ ., data=bodyfat))) -> trained.models
+trained.models
+
+
+####################Calculate Root mean square error for test ############# ###################
+map2_dbl(trained.models$model, trained.models$test, rmse) -> test.rmse
+test.rmse
+
+####################Calculate Root mean square error for train ############# ###################
+map2_dbl(trained.models$model, trained.models$train, rmse) -> train.rmse
+
+
+#########################Get R^2, AIc, BIC values###########################
+glance(trained.models) %>%select(adj.r.squared, df, logLik, AIC, BIC)
+
+
+###################Plot the test dataset############# ###################
+as.data.frame(test.rmse) %>% ggplot(aes(x="", y=test.rmse)) + geom_boxplot()
+
+###################Plot the train dataset############# ###################
+as.data.frame(train.rmse) %>% ggplot(aes(x="", y=train.rmse)) + geom_boxplot()
+
+
+## Convert these to **vectors** to run the test below 
+as.numeric(test.rmse) -> test.rmse2 
+as.numeric(train.rmse) -> train.rmse2
+
+## Run a test on train/test rmse, remembering that these are PAIRED by k-fold!##
+wilcox.test(test.rmse2, train.rmse2, paired=T)
+```
+
+<br>
+
+**The test dataset has a mean at 4.1 where as for the train dataset it is 4.22. There are outliers in the train and test datasets. On comparing the RMSE values for the 2 datasets,Wilcoxon signed rank test gives p_value of .4316 which is greater than alpha of 0.05. This suggests that RMSE values are from the same underlying distribution and do not significantly differ. In overall prediction, the k-fold cross validation gave us a fairly robust model**
+
+<br><br>
+
+## Part Two
+
+This section uses the dataset `mammogram.csv`, which contains mammogram results, and final diagonses, for 831 women. Variables in the dataset include the following:
+
++ `BIRADS`, the BI-RADS mammogram assessment, ranging from 1--5 here (see here: [https://en.wikipedia.org/wiki/BI-RADS](https://en.wikipedia.org/wiki/BI-RADS) as desired)
++ `Age`: patient's age in years
++ `Shape`: mass shape
++ `Margin`: mass margin
++ `Density`: mass density
++ `Severity`: final diagnosis, as benign or malignant
+
+<br>
+
+
+**Question 1 (25 points).** Construct a logistic regression, using the full mammogram dataset, to predict breast cancer malignancy. Once the model is made, make two figures to accompany this model: an ROC curve and a plot of the logistic curve fitted (for the latter plot, show colored points). Then, provide an explanation which includes the following components:
+
+  + The AUC
+  + The false discovery rate, at a cutoff of 0.5
+  + The accuracy, at a cutoff of 0.5
+  + The true positive rate that corresponds to a *specificity* of 0.9, as assessed *visually* from the ROC curve
+  + For each of these quantites, be sure to explain what the quantity means in the context of the model.
+      + **For example:**  in defining $R^2$ in a hypothetical bodyfat linear model, I would not define it as "the percent of y explained by x". I *would* define it as "the percent of variance in bodyfat explained by the model."
+  + Based on all quantities and curves, indicate if this model has a strong performance.
+
+<br>
+
+```{r}
+######################Read the dataset#####################################
+###########
+mamogram <- read.csv("mammogram.csv") 
+mamogram
+
+#############Construct a logistic regression model##############################
+#####.
+model_mam <- glm(Severity~.,data=mamogram, family=binomial) 
+glance(model_mam) 
+tidy(model_mam)
+
+#############Receiver Operating Characteristic (ROC)#####################
+roc1 <- roc(mamogram$Severity, model_mam$linear.predictors)
+roc1$auc 
+###########Receiver Operating Characteristic (ROC)#####################
+roc1.data <- tibble(x = roc1$specificities, y = roc1$sensitivities)
+#############Visulaize the ROC curve###########################################
+ggplot(roc1.data, aes(x=x,y=y)) + geom_line() + scale_x_reverse() + ylab("Sensitivity") + xlab("Specificity")
+
+#############To visualize model fitted curve#########################
+#################
+model.fit <- tibble(x=model_mam$linear.predictors, y=model_mam$fitted.values,
+Severity=mamogram$Severity)
+ggplot(model.fit, aes(x = x, y = y, colour=y)) + geom_line()
+
+############# A##################curacy#########################################
+mamo2 <- mamogram %>% mutate(pred = predict(model_mam,mamogram, type = "response"))
+
+#############Display P_values greater than 0.05#################################
+##############
+mamo2 %>% mutate(pred.malignancy = ifelse(pred >= 0.5, "mal","benign")) %>% group_by(Severity, pred.malignancy) %>% tally()
+
+#############################Get the accuracy#################################
+##############
+accuracy <- (356+339)/(356+72+64+339) 
+accuracy ###0.8363418
+```
+
+
+<br>
+**Area under the curve: 0.9073. The false discovery rate, at a cutoff of 0.5 is 72. The accuracy, at a cutoff of 0.5 is 0.836.The AIC and BIC values are 675.3008	736.695 respectively.The true positive rate that corresponds to a *specificity* of 0.9, as assessed *visually* from the ROC curve is approximately .75. The logistic regression graph indicates true and false postive values above .50 and true negative and fale negative below .50. This model from the mamogram dataset yields a Severity of -11.66177562. For every unit increase in the BIRADS, Age, Shapeirregular, Shapeoval,Shaperound,Marginill_defined,Marginmicrolobulated,Marginobscured and Marginspiculated, the Severity is increased by aproximately of 1.49033732 ,0.04941089, 0.6035998,-0.76951244,-0.56110041,1.14330715,	1.17188666, 0.79564304 and 1.35900989. Based on the Area under curve and the accuracy, the model is good.**
+
+**Question 2 (25 points).** Perform a *k-fold cross validation* with K=10 to predict breast cancer incidence, using all predictors. Make sure to set your seed first! For each trained model, calculate AUC for both the respective training and testing data. Visualize the final AUC distributions (there will be 20 values, 10 from test data and 10 from training data) as violin plots, in a single call to `ggplot()`. Based on your results, explain how robust the model is.
+
+<br>
+```{r}
+############################Set the seed ################################
+##############
+set.seed(1011)
+
+######################Training the dataset################################
+##############
+mamogram %>% crossv_kfold(10) %>% mutate(model = purrr::map(train, ~glm(Severity ~ .,data=mamogram, family=binomial))) -> trained_new.models
+trained_new.models
+
+
+######################Get predicted probabilities################################
+##############
+trained_new.models %>% unnest( fitted = map2(model, test, ~augment(.x, newdata = .y)), pred = map2( model, test, ~predict( .x, .y, type = "response")) ) -> test.predictions
+test.predictions %>% select(.id, Severity, pred )
+
+######################Get an AUC################################
+##############
+test.predictions %>%group_by(.id) %>% summarize(auc = roc(Severity, .fitted)$auc) %>% select(auc)
+test.predictions %>%group_by(.id) %>% summarize(auc = roc(Severity, .fitted)$auc) %>% select(auc) -> l
+
+
+######################Get an AUC of the training dataset###################
+###########################
+train.predictions <- trained_new.models %>% unnest(fitted =map2(model,train,~augment(.x, newdata=.y)), pred=map2(model,train,~predict(.x,.y,type="response")))
+train.predictions %>% group_by(.id) %>% summarize(auc = roc(Severity, .fitted)$auc) %>% select(auc) -> k
+
+
+
+
+######################Plot training and tested dataset###################
+###########################
+ggplot(k, aes(x="", y=k$auc)) + geom_violin(aes(fill = auc))
+ggplot(l, aes(x="", y=l$auc)) + geom_violin(aes(fill = auc))
+ 
+```
+<br>
+
+**Both training dataset and test dataset have high AUC's. The AUC values for the trained dataset is mainly above .86 and for the test dataset, it is mainly abbove .90. These value shows that we have a great model here. Training dataset looks as good as the trained dataset.The mean of train dataset is around .9062 whereas the test dataset mean is aprpximately.91**
+
+<br><br>
+
+**OPTIONAL BONUS QUESTION (20 points).** Make **violin plots** of *precision* and *accuracy* across the 10 folds, using a tidyverse-oriented strategy to obtain these values. An example for how to perform something similar can be found in the K-folds supplement on the course website. Additionally report and mean and standard deviation for these quantities.
+
+<br>
+
+```{r}
+test.predictions %>%
+select(.id, Severity, pred ) %>%
+mutate(pred = ifelse(pred >= 0.5, "malignant", "benign"))
+```
+```{r}
+test.predictions %>% select(.id, Severity, pred ) %>%
+mutate(pred = ifelse(pred >= 0.5, "malignant", "benign")) %>% group_by(.id, Severity, pred) %>% tally() %>% mutate(class = ifelse(Severity==pred & pred=="malignant", "TP", ifelse(Severity != pred & pred =="malignant", "FP", 
+ifelse(Severity == pred & pred =="benign", "TN", "FN")))) %>% ungroup() %>%select(.id,n,class) %>% spread(class,n) -> step_all
+step_all
+
+## Use the tidyr::replace_na() function to replace all NA's in columns TP, TN, FP, FN with 0: 
+step_all <- replace_na(step_all, list(TP=0, TN=0, FP=0, FN=0))
+step_all
+
+## Some classifer metric across all folds
+step_all %>% group_by(.id) %>%summarize(TPR= TP/(TP+FN), Accuracy=(TP+TN)/(TP+TN+FP+FN), PPV=TP/(TP+FP)) -> fold.metrics
+fold.metrics
+
+ggplot(fold.metrics, aes(x="", y=fold.metrics$PPV)) + geom_violin(aes(fill =fold.metrics$PPV))
+
+ggplot(l, aes(x="", y=fold.metrics$Accuracy)) + geom_violin(aes(fill =fold.metrics$Accuracy))
+
+```

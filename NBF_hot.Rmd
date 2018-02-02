@@ -1,0 +1,107 @@
+---
+title: "tetramer_analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(modelr)
+library(broom)
+library(dbscan)
+library(lattice)
+library(tidyr)
+library(tidyverse)
+library(bio3d)
+library(ggfortify)
+library(RcppCNPy)
+```
+
+```{r}
+
+##############################Setting the seed #######################
+set.seed(2500)
+
+
+##############################Read the X, Y, Z coordinates ############
+####################################################################################################################
+hot_nbf <- read.table("/Users/sharmak1/Desktop/amberminimization/june15/RosettaDocking/5HOT/docking/NBF_5HOT/LG1_5HOT.csv", header=F, sep = "\t")
+
+
+##############################Generate the matrix of  X, Y, Z coordinates of each decoy#####################################################################################
+hot_Nbf_matrix=matrix(c(t(matrix(c(hot_nbf$V2,hot_nbf$V3,hot_nbf$V4),ncol=3))),ncol=135,byrow=T) 
+
+##############################Generate the pairiwse distance matrix #####################################################################################
+D1_hot_nbf=dist(hot_Nbf_matrix)/sqrt(135)
+```
+
+```{r}
+########Method for deteriming optimal eps value for K  =5 ######################################### ######################################################
+dist <- dbscan::kNNdist(hot_Nbf_matrix, 5)
+as.matrix(D1_hot_nbf[]) -> dist
+dist <- dist[order(dist),] 
+dist<- dist/max(dist)
+
+ddist <- diff(dist) / 1/length(dist)
+
+knee <- dist[length(ddist) -length(ddist[ddist > 1])]
+knee
+```
+
+```{r}
+########Run DBS clustering ######################################### ######################################################
+dbs_dimer=dbscan(D1_hot_nbf, 0.9993577,5)###.51
+dbs_dimer
+```
+```{r}
+cmd=cmdscale(D1_hot_nbf,eig=T,k=2)
+r=range(cmd$points[,1],cmd$points[,2])
+jpeg('/Users/sharmak1/Desktop/amberminimization/june15/RosettaDocking/5HOT/docking/NBF_5HOT/5HOT_NBFcluster.jpg')
+#ggplot(cmd,aes(x=k, y=a, color=dbs_hot_nbf$cluster+1)) +geom_point()+stat_eclipse()+scale_color_discrete(name="cluster")
+xyplot(cmd$points[,2] ~ cmd$points[,1], col=dbs_hot_nbf$cluster+1, pch=19, level =0.68,cex=1, segments = 50,aspect=1, xlim=r, ylim=r, xlab="calculated_distance", ylab="input_distance")
+dev.off()
+jpeg('/Users/sharmak1/Desktop/amberminimization/june15/RosettaDocking/5HOT/docking/NBF_5HOT/5HOT_NBFdist.jpg')
+D2_hot_nbf=dist(cmd$points)
+xyplot(D1_hot_nbf ~ D2_hot_nbf, xlab="calculated_distance", ylab="input_distance") 
+e <- read.csv("/Users/sharmak1/Desktop/amberminimization/june15/RosettaDocking/5HOT/docking/NBF_5HOT/top100.csv", header = F, sep = "\t")
+e
+cluster=dbs_hot_nbf$cluster
+cbind(e, cluster) -> newdata_hot_nbf
+newdata_hot_nbf
+dev.off()
+```
+```{r}
+jpeg('/Users/sharmak1/Desktop/amberminimization/june15/RosettaDocking/5HOT/docking/NBF_5HOT/5HOT_NBF.jpg')
+newdata_hot_nbf %>% filter(cluster!=0) -> new
+new
+ggplot(new, aes(x=cluster,y=V7, fill=as.factor(V7))) + geom_bar(stat="identity")+scale_fill_discrete(name="Cluster with Interphase energies")+ylab("Interphase Energy")
+dev.off()
+```
+
+```{r}
+rmsd(a=hot_Nbf_matrix[1,], b=hot_Nbf_matrix, fit=TRUE) -> rmsd_hot_Nbf_matrix
+as.matrix(hot_Nbf_matrix[1,])
+cbind(newdata_hot_nbf,rmsd_hot_Nbf_matrix) -> finaldataset_hot_nbf
+finaldataset_hot_nbf
+jpeg('/Users/sharmak1/Desktop/amberminimization/june15/RosettaDocking/5HOT/docking/NBF_5HOT/RMSD.jpg')
+ggplot(finaldataset_hot_nbf,aes(x=V7, y=rmsd_hot_Nbf_matrix,color=as.factor(cluster))) + geom_jitter() + xlab("Interphase_delta") + ylab("RMSD")
+finaldataset_hot_nbf %>%filter(cluster==1)%>% select(V7, V8,cluster,rmsd_hot_Nbf_matrix) 
+finaldataset_hot_nbf %>%filter(cluster==2)%>% select(V7, V8,cluster,rmsd_hot_Nbf_matrix) 
+finaldataset_hot_nbf %>%filter(cluster==3)%>% select(V7, V8,cluster,rmsd_hot_Nbf_matrix) 
+finaldataset_hot_nbf %>%filter(cluster==4)%>% select(V7, V8,cluster,rmsd_hot_Nbf_matrix) 
+finaldataset_hot_nbf %>%filter(cluster==5)%>% select(V7, V8,cluster,rmsd_hot_Nbf_matrix) 
+finaldataset_hot_nbf %>%filter(cluster==6)%>% select(V7, V8,cluster,rmsd_hot_Nbf_matrix)
+```
+```{r}
+hot_nbf_native <- read.table("/Users/sharmak1/Desktop/amberminimization/june15/RosettaDocking/5HOT/docking/NBF_5HOT/final_nativecor.csv", header=F, sep = "\t")
+hot_nbf_native
+hot_Nbf_native_matrix=matrix(c(t(matrix(c(hot_nbf$V2,hot_nbf$V3,hot_nbf$V4),ncol=3))),ncol=135,byrow=T) 
+hot_Nbf_native_matrix
+rmsd(a=hot_Nbf_matrix[2,], b=hot_Nbf_matrix, fit=TRUE) -> rmsd_native
+rmsd_native
+cbind(newdata_hot_nbf,rmsd_native) -> finaldataset_hot_nbf
+finaldataset_hot_nbf
+ggplot(finaldataset_hot_nbf,aes(x=V7, y=rmsd_hot_Nbf_matrix,color=as.factor(cluster))) + geom_jitter() + xlab("Interphase_delta") + ylab("RMSD")
+finaldataset_hot_nbf %>% filter(cluster==1) %>% select(V7,V8,cluster,rmsd_native) 
+```
+

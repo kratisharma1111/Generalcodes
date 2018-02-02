@@ -1,0 +1,286 @@
+
+```{r global_options, include=FALSE}
+library(knitr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(broom)
+knitr::opts_chunk$set(echo = TRUE, fig.align="center", fig.height=4.5, fig.width=4.5)
+```
+---
+output: html_document
+---
+
+## Homework 10: Linear Models and Logistic Regression (100 points)
+#### BIO5312
+#### Due 11/7/17 by 5:30 pm
+
+**Krati Sharma**
+
+<br>
+
+### Instructions 
+
+A critical component to constructing robust and reliable models is **model selection**, that is, selecting the "optimal" model among possible models, so that your model achieves the most accurate predictions. Often, model selection is used to determine which predictors "should", or "should not", be included in a given model.
+
+For this assignment, you will perform model selection by "backwards elimination," a common step-wise approach to determine which predictor(s) "should" be used in a model. This approach works as follows:
+
++ Build a model with all possible predictors from the data
+    + Note: A convenient way to use "all other columns" as predictors is with this code strategy: `lm(Y~ ., data = data)` (note the "." on the right hand side of `~`).
++ From all non-significant coefficients, identify the variable with the **least significance** (i.e., highest P-value among all P>$\alpha$) 
+    + The `broom::tidy()` function is particularly helpful for quickly determining which P-values are significant. 
+    + For the most efficiency, use code like this to reveal the worst predictor: `model.fit.variable %>% tidy() %>% filter(p.value > alpha) %>% arrange()`
++ Re-build the model with this non-significant predictor removed
+    + At this stage you will need to actually write out all predictors in your model formula
++ Repeat until all predictor variables are significant (all remaining P-values are less than $\alpha$)
+
+Importantly, throughout this process, you should consider **only additive effects** (not interaction effects!!) in your models. Also note that there are many R packages that perform this task in an automated fashion. **Do not use them. You must build and evaluate these models yourself.**
+
+Throughout the assignment, the term "full model" will be used to refer to a model with all possible predictors, and the term "final model" will be used to refer to the final model produced after the step-wise backwards elimination. Most questions will prompt you to compare the full model with the final model, so be sure to save both to a variable so you can re-use them.
+Consider $\alpha=0.05$ as significant throughout the assignment.
+
+----
+
+All questions in this assignment concern the dataset `pima.csv`, which contains data from surveys of Pima Native American women’s health. Studies have shown that Pima  women have increased incidences of Type II Diabetes relative to the general population. To identify possible underlying factors of diabetes in this population, researchers took various measurements of women with and without. Variables in the dataset include the following:
+
++ `npregnancy`, the number of pregnanies the individual has had.
++ `glucose`, the plasma glucose concentration after 2 hours in an oral glucose tolerance test, in mg/dL
++ `bp`, diastolic blood pressure, in mmHg
++ `skin.thickness`, triceps skin fold thickness, in mm
++ `insulin`, 2-Hour serum insulin, in mu U/ml
++ `BMI`, body mass index, in weight in kg/(height in m)^2
++ `age`, in years
++ `diabetic`, Yes or No
+
+
+
+<br>
+
+## Part One
+
+Use backwards elimination to construct a linear model to predicts BMI in Pima women, and answer the subsequent questions. You must show **all steps** along the way, specifically these:
+
++ The `broom::tidy()` output from each model, and the `broom:glance()` output for the full and final models (output will be useful for question 3 below). 
+  + Please do not show the `summary(lm(..))` output. Stick to `broom` functions!
++ Comments in your code indicating which variable is being removed at each step
+
+
+### Model construction (10 points)
+
+```{r}
+### Code to perform step-wise model selection goes here
+pima<-read.csv("pima.csv")
+pima
+full_model_pima <- lm(BMI ~ ., data = pima)
+
+tidy(full_model_pima)#### For full model interpretation. 
+
+
+tidy(full_model_pima) %>% filter(p.value>0.05) ###this results in 3 predictors with p_values more than alpha value of 0.05. These predictors are npregnancy, glucose and age. We first eliminate "glucose" which has the highest p_value.
+
+
+new<-lm(BMI ~ npregnancy+bp+skin.thickness+insulin+age+diabetic, data = pima)
+tidy(new)%>% filter(p.value>0.05) ###this results in elimination of "age" as it has the highest p_value. 
+
+
+final<-lm(BMI ~ npregnancy+bp+skin.thickness+insulin+diabetic, data = pima)
+tidy(final)%>% filter(p.value>0.05) ###this results in none so we have all important predictors for the model construction.
+
+tidy(final)  #### For final model interpretation. 
+
+glance(full_model_pima) ### to find R^2 values for the full model
+glance(final) ### to find R^2 values for the final model 
+
+
+```
+<br><br>
+### Questions
+<br>
+
+**1. (10 points)** Provide a full interpretation of the *full model*, including interpretations for all coefficients and for $R^2$. For any non-significant coefficients, explain what they would mean if they were significant.
+<br>
+
+*The dataset of pima women on linear model construction with all predictors will yield a BMI of 14.940. For every unit increase in npregnancy, glucose, bp, skin.thickness, insulin, age and presence of diabetes, the BMI is increased by -0.200386236,-0.005870310, 0.107999009,0.401779513,0.006469955, -0.047978539 and 1.654997521 respectively. 
+Significant statisitics predictors are npregnancy, skin.thickness,age,presence of diabetes and insulin based on the p_value which is less than alpha of 0.05 respectively.
+
+Adjusted R^2 value for full model is 0.4751228 which means that 47% variation  in BMI can be explained by other predictors in the dataset.*
+<br>
+
+
+**2. (10 points)** Provide a full interpretation of the *final model*, including interpretations for all coefficients and for the final model's $R^2$.BMI explains half way the model. 
+
+<br>
+
+*The final model from the pima dataset yields a BMI of 13.825694413. For every unit increase in npregnancy, bp, skin.thickness, insulin, and presence of diabetes, the BMI is increased by aproximately -0.296781951, 0.101564467, 0.400469974,0.005280955,and 1.393778416 respectively. Significant statisitics predictors are npregnancy, skin.thickness, age, presence of diabetes and insulin based on the p_value which is less than alpha of 0.05.
+
+Adjusted R^2 value for final model is 0.475071 which means that 47% variation in BMI can be explained by other predictors in the dataset.*
+
+<br>
+
+**3. (5 points)** Compare the *adjusted* $R^2$ from the full model to the *adjusted* $R^2$ from the final model. Specifically, based on these values, which model (if either) do you think has the most predictive power? What does this result tell you about the effect of non-significant predictors on $R^2$?
+<br>
+
+**The adjusted R^2 of full model is 0.4751228 and the final model is 0.475071. By R^2 values, 47% variation in BMI can be expained which is similar in both final and the full linear model construction. As predictors increase, R value increases. So full model should have more R value or more predictive power but might be due to non siginificant predictors (based on the pvalue greater than alpha) such as age and glucose, it doesn't reflect much difference in the adjusted R^2 value of final and full model**
+
+<br>
+
+**4.(10 points)** Predict (with a 95% confidence interval) the BMI using both original model and the final model (i.e., make two separate predictions) for an individual with the following characteristics. For each prediction, be sure to only include the relevant predictors in the data frame you make to run the prediction.
+
++ 0 pregnancies
++ Glucose level of 137 mg/dL
++ BP of 40 mmHg
++ Skin thickness of 35 mm
++ Insulin of 168 mu U/ml
++ 22 years old
++ Has diabetes
+
+
+```{r}
+### Code to predict BMI for each model goes here
+new.data <-tibble(npregnancy=0,glucose=137,bp=40,skin.thickness=35,insulin=168,age=22,diabetic="Yes")
+
+predict(full_model_pima, new.data, interval="confidence") 
+predict(final, new.data, interval="confidence") 
+predict(full_model_pima, new.data, type = "response")
+predict(final, new.data, type = "response") 
+```
+<br>
+
+**5.(5 points)** And now the reveal: The true BMI for this individual is 43.1 Which model gave the best prediction, if either? Based on your results, do you think that stepwise backwards elimination produced a "better" model, from the full to the final?
+
+*Prediction based on the confidence interval is similar from both, full and final linear model. So stepwise backwards elimination has not help in improving predictions. There is no better model from stepwise backwards elimination. Our logistic model gives a 34% probability in both cases for BMI prediction.*
+
+
+
+<br><br>
+
+## Part Two
+
+Use backwards elimination to construct a logistic regression model that predicts Diabetic status in Pima women, and answer the subsequent questions. You must show **all steps** along the way, specifically these:
+
++ The `broom::tidy()` output from each model (there is nothing relevant out of `broom::glance()`, with regards to this homework). Again, no `summary()`!
++ Comments in your code indicating which variable is being removed at each step
+
+Further note: the `glm()` function will require that the response variable `diabetic` is a **factor**. Therefore,if you receive an error when running `glm()` you may have to write this variable in your `glm()` call like this: `glm(as.factor(diabetic) ~ .......)`.
+
+
+### Model construction (10 points)
+
+```{r}
+### Backwards elimination to construct a logistic regression model.....
+full_model <- glm(diabetic ~ .,data=pima,family=binomial)
+tidy(full_model) %>% filter(p.value>0.05) ###Blood pressue is eliminated as pvlaue is highest 0.9115545 in comparison to other predictors with alpha value more than 0.05. 
+
+step1 <- glm(diabetic~npregnancy+glucose+skin.thickness+insulin+BMI+age,data=pima,family=binomial)
+tidy(step1) %>% filter(p.value>0.05)###insulin is eliminated next becuase of high pvalue 0.6584353 which is more than alpha 0.05
+
+
+step2 <- glm(diabetic ~npregnancy+glucose+skin.thickness+BMI+age,data=pima,family=binomial)
+tidy(step2) %>% filter(p.value>0.05)###skin.thickness is eliminated next because of pvalue 0.3548732 more than alpha of 0.05. 
+
+
+
+step3 <- glm(diabetic ~npregnancy+glucose+BMI+age,data=pima,family=binomial)
+tidy(step3) %>% filter(p.value>0.05)  ###npregnancy is eliminated next due to pvalue of 0.1736216 which is more than alpha of 0.05. 
+
+
+final_model <- glm(diabetic ~ glucose+BMI+age,data=pima,family=binomial)
+tidy(final_model) 
+```
+
+<br><br>
+
+### Questions
+
+<br>
+
+**1. (5 points)** Plot the logistic curve from the *full model*. Include points on the curve colored by diabetic status. In order to fully see all the points, you may wish to specify an `alpha` (transparency level) to the points.
+
+```{r}
+
+### Code to plot full model logistic curve goes here##fill based on diabetic and which model from ........ 
+plot.data <- tibble(x=full_model$linear.predictors, y=full_model$fitted.values,diabetic=pima$diabetic)
+
+ggplot(plot.data, aes(x=x,y=y,color=diabetic)) + geom_line() + geom_point(alpha = 1)
+```
+
+<br>
+
+**2. (5 points)** Plot the logistic curve from the *final model*. Include points on the curve colored by diabetic status. In order to fully see all the points, you may wish to specify an `alpha` (transparency level) to the points.
+
+```{r}
+
+### Code to plot final model logistic curve goes here
+plot.data <- tibble(x=final_model$linear.predictors, y=final_model$fitted.values,diabetic=pima$diabetic)
+
+ggplot(plot.data, aes(x=x,y=y,color=diabetic)) + geom_line() + geom_point(alpha = 1)
+```
+
+<br>
+
+**3. (10 points)** Now, you will visualize the same data a bit differently: Plot overlayed density plots for the **linear predictors** (these are the values on the X-axis of the logistic curve) of the model, where densities are colored by diabetic status. Make this a **faceted plot**, where one facet shows densities for the full model and the other shows densities for the final model. Hint: To create a facetted plot, all data must be in the same data frame.
+
+
+```{r}
+
+### Code to plot faceted densities goes here
+full.data <- tibble(x=full_model$linear.predictors, y=full_model$fitted.values,diabetic=pima$diabetic, model="full_model")
+
+final.data <- tibble(x=final_model$linear.predictors, y=final_model$fitted.values,diabetic=pima$diabetic, model="final_model")
+
+new_data <- rbind(full.data,final.data)
+
+ggplot(new_data, aes(x = x, fill = diabetic)) + geom_density(alpha = 0.5) + facet_grid(~model)
+
+
+```
+
+<br>
+
+**4. (5 points)** Based on the figures above (the two logistic curves and the density plots), do you think that either the full or final model did a "better job" separating the Diabetics? Why or why not?
+
+<br>
+*The logistic curve shows that probability of separating no diabetic data from diabetic data in full model starts at approximately 0.50 whereas in the final model, it starts at .25 probability. But it is unclear. Density plots are comparatively clear in full model which shows slight variation approimately at  0.21 which results in 2 peaks. Whereas there is no variation at the same location in the final model.*
+
+<br
+
+**5. (10 points)** Predict the probability of having diabetes, using both full model and the final model (i.e., make two separate predictions) for an individual with the following characteristics. For each prediction, be sure to only include the relevant predictors in the data frame you make to run the prediction.
+
++ 1 pregnancy
++ Glucose level of 89 mg/dL
++ BP of 66 mmHg
++ Skin thickness of 23 mm
++ Insulin of 94 mu U/ml
++ BMI of 28.1
++ 21 years old
+
+
+
+```{r}
+
+### Predict the probability of having diabetes
+new_glm.data <-tibble(npregnancy=1,glucose=89,bp=66,skin.thickness=23,insulin=94,BMI=28.1,age=21)
+predict(full_model, new_glm.data, interval="confidence") 
+predict(final_model, new_glm.data, interval="confidence") 
+predict(full_model, new_glm.data, type = "response")
+predict(final_model, new_glm.data, type = "response") 
+```
+<br>
+
+
+**6. (5 points)** And now the reveal: In truth, this individual *does not* have Diabetes. Which model gave the best prediction, if either? Based on your results, do you think that stepwise backwards elimination produced a "better" model, from the full to the final?
+
+<br>
+*Based on the prediction, the probability of diabetes based on the full model is .3% and final model is .4%. Since the person has no diabetes, the final model is slightly good in diabetes prediction. Based on the confidence interval, both are very similar in predictions. *
+
+
+
+
+
+
+
+
+
+
+
+
